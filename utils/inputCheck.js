@@ -11,6 +11,10 @@ module.exports = function(obj, ...props) {
     }
   });
 
+  // If the inputCheck() function returns an error, an error 
+  // message is returned to the client as a 400 status code, 
+  // to prompt for a different user request with a JSON object 
+  // that contains the reasons for the errors.
   if (errors.length) {
     return {
       error: errors.join(' ')
