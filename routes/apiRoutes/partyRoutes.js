@@ -1,0 +1,70 @@
+const express = require('express');
+const router = express.Router();
+const db = require('../../db/connection');
+
+// gets all the data from parties table in database as row objects
+router.get('/parties', (req, res) => {
+
+    const sql = `SELECT * FROM parties`;
+
+    db.query(sql, (err, rows) => {
+        if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+        }
+        res.json({
+        message: 'success',
+        data: rows
+        });
+    });
+});
+
+
+// gets a single party based on the id.
+router.get('/party/:id', (req, res) => {
+
+    const sql = `SELECT * FROM parties WHERE id = ?`;
+    const params = [req.params.id];
+
+    db.query(sql, params, (err, row) => {
+        if (err) {
+        res.status(400).json({ error: err.message });
+        return;
+        }
+        res.json({
+        message: 'success',
+        data: row
+        });
+    });
+});
+
+
+
+// delete a party based on the id parameter
+router.delete('/party/:id', (req, res) => {
+
+    // sql query that deletes the specified party in the database.
+    const sql = `DELETE FROM parties WHERE id = ?`;
+    const params = [req.params.id];
+
+    db.query(sql, params, (err, result) => {
+        if (err) {
+        res.status(400).json({ error: res.message });
+        // checks if anything was deleted
+        } else if (!result.affectedRows) {
+        // if party does not exist based on id.
+        res.json({
+            message: 'Party not found'
+        });
+        } else {
+        res.json({
+            message: 'deleted',
+            changes: result.affectedRows,
+            id: req.params.id
+        });
+        }
+    });
+});
+
+
+module.exports = router;
