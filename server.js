@@ -41,7 +41,21 @@ const db = mysql.createConnection(
 // candidates' names.
 app.get('/api/candidates', (req, res) => {
     // just to hold string for query in const variable
-    const sql = `SELECT * FROM candidates`;
+    // see google docs MySQL - notes, 
+    // Joining data from different tables together.
+
+    // selects all columns from candidates table.
+    // selects the name colum from parties and gives it the
+    // alias of "party_name" so that it doesnt show up as just "name"
+    // in the candidate table column.
+    // left join, join the selected row from parties onto the 
+    // candidates table and match the party_name based on the candidate's
+    // id.
+    const sql = `SELECT candidates.*, parties.name 
+                 AS party_name 
+                 FROM candidates 
+                 LEFT JOIN parties 
+                 ON candidates.party_id = parties.id`;
   
     // queries our database to select all rows from
     // the candidates table
@@ -86,9 +100,15 @@ app.get('/api/candidate/:id', (req, res) => {
     // MySQL database query. 
     // This is called a prepared SQL statement.
     // The value to put in place
-    // of the ? place holder is put after the "," and can be 
+    // of the ? place holder can be 
     // an array or a single value.
-    const sql = `SELECT * FROM candidates WHERE id = ?`;
+    // see above get function for more comments...
+    const sql = `SELECT candidates.*, parties.name 
+                 AS party_name 
+                 FROM candidates 
+                 LEFT JOIN parties 
+                 ON candidates.party_id = parties.id 
+                 WHERE candidates.id = ?`;
     // takes the id number from the request url
     const params = [req.params.id];
   
@@ -103,6 +123,119 @@ app.get('/api/candidate/:id', (req, res) => {
       });
     });
 });
+
+
+// gets all the data from parties table in database as row objects
+app.get('/api/parties', (req, res) => {
+
+  const sql = `SELECT * FROM parties`;
+
+  db.query(sql, (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json({
+      message: 'success',
+      data: rows
+    });
+  });
+});
+
+
+// gets a single party based on the id.
+app.get('/api/party/:id', (req, res) => {
+
+  const sql = `SELECT * FROM parties WHERE id = ?`;
+  const params = [req.params.id];
+
+  db.query(sql, params, (err, row) => {
+    if (err) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    res.json({
+      message: 'success',
+      data: row
+    });
+  });
+});
+
+
+// It's possible that a candidate will change his or her party 
+// affiliation over time. Ronald Firbank, for instance, might decide 
+// one day that he likes HTML more than JavaScript. This kind of 
+// update is something the front-end team would like to be able to make 
+// through the app itself. Sounds like the team will need an API route!
+// What request type would be appropriate for updating data? We've 
+// established that GET is for reading, POST for creating, and DELETE 
+// for deleting. None of those make sense for updating, but there is a fourth 
+// request type we can use: the PUT request.
+// Update a candidate's party based on candidate's id
+app.put('/api/candidate/:id', (req, res) => {
+
+  // we should be extra sure that a party_id was 
+  // provided before we attempt to update the database.
+  const errors = inputCheck(req.body, 'party_id');
+
+  if (errors) {
+    res.status(400).json({ error: errors });
+    return;
+  }
+
+  // update candidates table, set party_id to <id>
+  // where the candidates id is equal to the specified id that
+  // was passed in in the req.params.
+  const sql = `UPDATE candidates SET party_id = ? 
+               WHERE id = ?`;
+  const params = [req.body.party_id, req.params.id];
+
+  db.query(sql, params, (err, result) => {
+    if (err) {
+      res.status(400).json({ error: err.message });
+      // check if a record was found
+    } else if (!result.affectedRows) {
+      res.json({
+        message: 'Candidate not found'
+      });
+    } else {
+      res.json({
+        message: 'success',
+        data: req.body,
+        changes: result.affectedRows
+      });
+    }
+  });
+});
+
+
+// delete a party based on the id parameter
+app.delete('/api/party/:id', (req, res) => {
+
+  // sql query that deletes the specified party in the database.
+  const sql = `DELETE FROM parties WHERE id = ?`;
+  const params = [req.params.id];
+
+  db.query(sql, params, (err, result) => {
+    if (err) {
+      res.status(400).json({ error: res.message });
+      // checks if anything was deleted
+    } else if (!result.affectedRows) {
+      // if party does not exist based on id.
+      res.json({
+        message: 'Party not found'
+      });
+    } else {
+      res.json({
+        message: 'deleted',
+        changes: result.affectedRows,
+        id: req.params.id
+      });
+    }
+  });
+});
+
+
 
 // API endpoint that will delete a candidate from the database.
 // Delete a candidate
