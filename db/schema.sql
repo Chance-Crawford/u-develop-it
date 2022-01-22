@@ -1,6 +1,9 @@
 -- whenever we run the schema script all tables 
 -- will be dropped if they previously already existed.
 -- basically like a refresh everytime you run, source db/schema.sql
+-- the order which you drop tables is very important if tables
+-- have foreign keys or are dependent on other tables.
+DROP TABLE IF EXISTS votes;
 DROP TABLE IF EXISTS candidates;
 DROP TABLE IF EXISTS parties;
 DROP TABLE IF EXISTS voters;
@@ -55,4 +58,42 @@ CREATE TABLE voters (
   -- it is according to your server, not the client's machine.
   -- So, in our code we're specifying CURRENT_TIMESTAMP as the value for DEFAULT.
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- What's the benefit of having a separate table to track votes, though? 
+-- It does two things for us:
+-- It keeps the candidate and voter data clean by not cluttering up 
+-- their tables with vote information.
+-- It makes it easier to hold other elections later on. For instance, 
+-- you could simply reset the votes table, or keep that history and 
+-- track multiple elections by the dates on which the votes were cast.
+CREATE TABLE votes (
+  id INTEGER AUTO_INCREMENT PRIMARY KEY,
+  voter_id INTEGER NOT NULL,
+  candidate_id INTEGER NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  -- This new votes table accommodates everything we need, but we should 
+  -- think about potential problems that might arise. For instance, a voter 
+  -- isn't allowed to vote twice, so the table should prevent duplicate records. 
+  -- Also, what happens to a vote if the relevant candidate or voter is removed 
+  -- from the database? We should probably remove the vote as well!
+  -- uc_voter, signifies that the values inserted into the voter_id field must 
+  -- be unique. For example, whoever has a voter_id of 1 can only appear in this table once.
+  CONSTRAINT uc_voter UNIQUE (voter_id),
+  -- The next two constraints are foreign key constraints, which you've seen before. 
+  -- it establishes a field in this table as a reference to the id primary key of
+  -- another table.
+  -- The difference now is the ON DELETE CASCADE statement. Previously, ON DELETE SET 
+  -- NULL would set the record's field to NULL if the key from the reference table was 
+  -- deleted. With ON DELETE CASCADE, deleting the reference key will also delete the 
+  -- entire row from this table.
+  -- meaning if voter 1 is deleted from its original table (voter). Voter 1's entire vote
+  -- (which is a row in this vote table) will be deleted too.
+  -- so their vote will no longer exist in the database
+  CONSTRAINT fk_voter FOREIGN KEY (voter_id) REFERENCES voters(id) ON DELETE CASCADE,
+  -- if candidate 1 is deleted from its original table (candidate). 
+  -- any votes (which is a row in this vote table)
+  -- tthat voted for candidate 1 will be deleted as well.
+  -- so the votes will no longer exist in the database
+  CONSTRAINT fk_candidate FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE
 );
